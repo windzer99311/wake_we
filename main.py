@@ -1,6 +1,4 @@
 import streamlit as st
-import time
-from streamlit_autorefresh import st_autorefresh
 import os
 
 from selenium import webdriver
@@ -12,11 +10,7 @@ def wake_web():
     options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1200')
     url=r'https://visitcount-ymbj8jwzkdo4rdnrnspkqm.streamlit.app/'
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
-                              options=options)
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
     st.write(f"DEBUG:DRIVER:{driver}")
     driver.get(url)
-    time.sleep(5)
-    html_doc = driver.page_source
-    driver.quit()
 wake_web()
