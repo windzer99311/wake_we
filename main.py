@@ -33,9 +33,6 @@ def wake_web():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
                               options=options)
     st.write(f"DEBUG:DRIVER:{driver}")
-    url="https://visitcount-ymbj8jwzkdo4rdnrnspkqm.streamlit.app/"
-    driver.get(url)
-
     while True:
         log_lines = []
         now_str = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
