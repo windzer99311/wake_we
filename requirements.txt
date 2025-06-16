@@ -2,3 +2,4 @@ streamlit
 selenium==4.18.1
 webdriver-manager
 seleniumbase
+streamlit_autorefresh
