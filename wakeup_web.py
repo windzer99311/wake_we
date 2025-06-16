@@ -1,17 +1,31 @@
+"""Scrapes quotes from the given url.
+
+The url is 'https://quotes.toscrape.com/'.
+"""
+
 import streamlit as st
-import os, sys
-
-@st.experimental_singleton
-def installff():
-  os.system('sbase install geckodriver')
-  os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/geckodriver /home/appuser/venv/bin/geckodriver')
-
-_ = installff()
 from selenium import webdriver
-from selenium.webdriver import FirefoxOptions
-opts = FirefoxOptions()
-opts.add_argument("--headless")
-browser = webdriver.Firefox(options=opts)
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service as ChromeService
+import pandas as pd
 
-browser.get('http://example.com')
-st.write(browser.page_source)
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--headless')
+chrome_options.add_argument('--window-size=1920x1080')
+chrome_options.add_argument('--disable-gpu')
+
+driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+
+url = 'https://quotes.toscrape.com/'
+driver.get(url)
+
+quotes = driver.find_elements('xpath', '//span[@class="text"]')
+
+data = []
+for q in quotes:
+    data.append(q.text)
+    
+driver.quit()
+
+df = pd.DataFrame(data, columns=['Quotes'])
+st.dataframe(df)
