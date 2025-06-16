@@ -4,22 +4,18 @@ import time
 from datetime import datetime, timedelta
 from streamlit_autorefresh import st_autorefresh
 import os
-import requests
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import WebDriverException
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Constants
 VIRTUAL_START_STR = "2025-06-13 00:00:00"
 VIRTUAL_START = datetime.strptime(VIRTUAL_START_STR, "%Y-%m-%d %H:%M:%S")
 BOOT_TIME_FILE = "boot_time.txt"
 LOG_FILE = "logs.txt"
-
-# Browser-like headers
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Connection": "keep-alive"
-}
 
 # Set or load the real boot time
 if os.path.exists(BOOT_TIME_FILE):
@@ -30,8 +26,16 @@ else:
     with open(BOOT_TIME_FILE, "w", encoding='utf-8') as f:
         f.write(REAL_SERVER_START.strftime("%Y-%m-%d %H:%M:%S"))
 
-# ✅ Wake web background task using requests
+# ✅ Wake web background task using Selenium with proper log format
 def wake_web():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
     while True:
         log_lines = []
         now_str = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
@@ -41,10 +45,9 @@ def wake_web():
                 urls = [line.strip() for line in f if line.strip()]
                 for url in urls:
                     try:
-                        r = requests.get(url, headers=HEADERS, timeout=10)
-                        r.raise_for_status()
-                        log_line = f"{now_str} ✅ {url} → {r.status_code}"
-                    except requests.RequestException as e:
+                        driver.get(url)
+                        log_line = f"{now_str} ✅ {url} → 200"
+                    except WebDriverException as e:
                         log_line = f"{now_str} ❌ {url} → Error: {e}"
                     print(log_line)
                     log_lines.append(log_line)
@@ -70,7 +73,7 @@ st_autorefresh(interval=1000, key="refresh")
 elapsed_real = (datetime.now() - REAL_SERVER_START).total_seconds()
 current_virtual = VIRTUAL_START + timedelta(seconds=elapsed_real)
 
-st.title("Wake Web Streamlit (requests version)")
+st.title("Wake Web Streamlit")
 st.write("### Time running since:")
 st.code(current_virtual.strftime("%Y-%m-%d %H:%M:%S"))
 
