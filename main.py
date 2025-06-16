@@ -46,8 +46,8 @@ def wake_web():
                     try:
                         driver.get(url)
                         log_line = f"{now_str} ✅ {url} → 200"
-                    except WebDriverException as e:
-                        log_line = f"{now_str} ❌ {url} → Error: {e}"
+                    except:
+                        log_line = f"{now_str} ❌ {url} → Error:pass"
                     print(log_line)
                     log_lines.append(log_line)
         except FileNotFoundError:
