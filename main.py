@@ -6,9 +6,7 @@ from streamlit_autorefresh import st_autorefresh
 import os
 
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Constants
@@ -28,13 +26,14 @@ else:
 
 # ✅ Wake web background task using Selenium with proper log format
 def wake_web():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--window-size=1920,1200')
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
+                              options=options)
+    st.write(f"DEBUG:DRIVER:{driver}")
+    driver.get(url)
 
     while True:
         log_lines = []
@@ -47,8 +46,8 @@ def wake_web():
                     try:
                         driver.get(url)
                         log_line = f"{now_str} ✅ {url} → 200"
-                    except WebDriverException as e:
-                        log_line = f"{now_str} ❌ {url} → Error: {e}"
+                    except:
+                        log_line = f"{now_str} ❌ {url} → Error"
                     print(log_line)
                     log_lines.append(log_line)
         except FileNotFoundError:
