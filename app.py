@@ -1,59 +1,127 @@
 import streamlit as st
+import threading
+import time
+from datetime import datetime, timedelta
+from streamlit_autorefresh import st_autorefresh
+import os
 
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-import time
-from bs4 import BeautifulSoup
+from selenium.common.exceptions import WebDriverException
+from webdriver_manager.chrome import ChromeDriverManager
 
-# ------------- Settings for Pages -----------
-st.set_page_config(layout="wide")
+# Constants
+VIRTUAL_START_STR = "2025-06-13 00:00:00"
+VIRTUAL_START = datetime.strptime(VIRTUAL_START_STR, "%Y-%m-%d %H:%M:%S")
+BOOT_TIME_FILE = "boot_time.txt"
+LOG_FILE = "logs.txt"
 
-# Keep text only
-def get_website_content(url):
-    driver = None
-    try:
-        # Using on Local
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--window-size=1920,1200')
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
-                                  options=options)
-        st.write(f"DEBUG:DRIVER:{driver}")
-        driver.get(url)
-        time.sleep(5)
-        html_doc = driver.page_source
-        driver.quit()
-        soup = BeautifulSoup(html_doc, "html.parser")
-        return soup.get_text()
-    except Exception as e:
-        st.write(f"DEBUG:INIT_DRIVER:ERROR:{e}")
-    finally:
-        if driver is not None: driver.quit()
-    return None
+# Set or load the real boot time
+if os.path.exists(BOOT_TIME_FILE):
+    with open(BOOT_TIME_FILE, "r", encoding='utf-8') as f:
+        REAL_SERVER_START = datetime.strptime(f.read().strip(), "%Y-%m-%d %H:%M:%S")
+else:
+    REAL_SERVER_START = datetime.now()
+    with open(BOOT_TIME_FILE, "w", encoding='utf-8') as f:
+        f.write(REAL_SERVER_START.strftime("%Y-%m-%d %H:%M:%S"))
 
+# ✅ Wake web background task using Selenium with proper log format
+def wake_web():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
+    while True:
+        log_lines = []
+        now_str = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
-# ---------------- Page & UI/UX Components ------------------------
-def main_sidebar():
-    # 1.Vertical Menu
-    st.header("Running Selenium on Streamlit Cloud")
-    site_extraction_page()
+        try:
+            with open('weblist.txt', 'r', encoding='utf-8') as f:
+                urls = [line.strip() for line in f if line.strip()]
+                for url in urls:
+                    try:
+                        driver.get(url)
+                        log_line = f"{now_str} ✅ {url} → 200"
+                    except WebDriverException as e:
+                        log_line = f"{now_str} ❌ {url} → Error: {e}"
+                    print(log_line)
+                    log_lines.append(log_line)
+        except FileNotFoundError:
+            log_lines.append(f"{now_str} ❌ weblist.txt not found.")
 
+        if log_lines:
+            with open(LOG_FILE, "a", encoding='utf-8') as f:
+                for line in log_lines:
+                    f.write(line + "\n")
 
-def site_extraction_page():
-    SAMPLE_URL = "https://spectrum.ieee.org/3d-printed-rocket"
-    url = st.text_input(label="URL", placeholder="https://example.com", value=SAMPLE_URL)
+        time.sleep(30)
 
-    clicked = st.button("Load Page Content",type="primary")
-    if clicked:
-        with st.container(border=True):
-            with st.spinner("Loading page website..."):
-                content = get_website_content(url)
-                st.write(content)
+# Start background thread only once
+if not hasattr(st, "_wake_thread_started"):
+    threading.Thread(target=wake_web, daemon=True).start()
+    st._wake_thread_started = True
 
+# Auto-refresh every 1s
+st_autorefresh(interval=1000, key="refresh")
 
-if __name__ == "__main__":
-    main_sidebar()
+# Virtual time display
+elapsed_real = (datetime.now() - REAL_SERVER_START).total_seconds()
+current_virtual = VIRTUAL_START + timedelta(seconds=elapsed_real)
+
+st.title("Wake Web Streamlit")
+st.write("### Time running since:")
+st.code(current_virtual.strftime("%Y-%m-%d %H:%M:%S"))
+
+# Load last 100 log lines from file
+if os.path.exists(LOG_FILE):
+    with open(LOG_FILE, "r", encoding='utf-8') as f:
+        lines = f.readlines()
+        last_lines = lines[-100:]
+        st.write("### Request Log")
+        st.markdown(
+            f"""
+            <style>
+                .log-box::-webkit-scrollbar {{
+                    width: 10px;
+                }}
+                .log-box::-webkit-scrollbar-track {{
+                    background: #eee;
+                    border-radius: 5px;
+                }}
+                .log-box::-webkit-scrollbar-thumb {{
+                    background: #888;
+                    border-radius: 5px;
+                }}
+                .log-box::-webkit-scrollbar-thumb:hover {{
+                    background: #555;
+                }}
+                .log-box {{
+                    scrollbar-color: #888 #eee;
+                    scrollbar-width: thin;
+                }}
+            </style>
+            <div class="log-box" style="
+                background-color:#f9f9f9;
+                color:#000;
+                padding:10px;
+                border-radius:5px;
+                border:1px solid #ccc;
+                height:400px;
+                overflow:auto;
+                font-family: monospace;
+                white-space: pre-wrap;
+                width: 100%;">
+                {"<br>".join(line.strip() for line in last_lines)}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+else:
+    st.write("### Request Log")
+    st.info("No logs yet.")
