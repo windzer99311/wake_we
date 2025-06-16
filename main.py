@@ -1,55 +1,124 @@
 import streamlit as st
+import threading
+import time
+from datetime import datetime, timedelta
+from streamlit_autorefresh import st_autorefresh
 import os
-from datetime import datetime
-from playwright.sync_api import sync_playwright
+import requests
 
-LOG_FILE = "visitor_logs.txt"
+# Constants
+VIRTUAL_START_STR = "2025-06-13 00:00:00"
+VIRTUAL_START = datetime.strptime(VIRTUAL_START_STR, "%Y-%m-%d %H:%M:%S")
+BOOT_TIME_FILE = "boot_time.txt"
+LOG_FILE = "logs.txt"
 
-# --- Visit a URL with Playwright ---
-def visit_with_playwright(url):
-    now = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, timeout=15000)
-            page_title = page.title()
-            browser.close()
-        log = f"{now} ✅ {url} → Loaded '{page_title}'"
-    except Exception as e:
-        log = f"{now} ❌ {url} → Error: {e}"
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(log + "\n")
-    return log
+# Browser-like headers
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Connection": "keep-alive"
+}
 
-# --- Streamlit UI ---
-st.title("🧭 Playwright Visitor Bot")
+# Set or load the real boot time
+if os.path.exists(BOOT_TIME_FILE):
+    with open(BOOT_TIME_FILE, "r", encoding='utf-8') as f:
+        REAL_SERVER_START = datetime.strptime(f.read().strip(), "%Y-%m-%d %H:%M:%S")
+else:
+    REAL_SERVER_START = datetime.now()
+    with open(BOOT_TIME_FILE, "w", encoding='utf-8') as f:
+        f.write(REAL_SERVER_START.strftime("%Y-%m-%d %H:%M:%S"))
 
-urls_input = st.text_area("Enter one URL per line:", placeholder="https://example.com")
-if st.button("Visit URLs"):
-    urls = [u.strip() for u in urls_input.splitlines() if u.strip()]
-    st.write(f"🌐 Visiting {len(urls)} site(s) using Playwright...")
-    logs = [visit_with_playwright(url) for url in urls]
-    st.success("✅ All done!")
-    for log in logs:
-        st.write(log)
+# ✅ Wake web background task using requests
+def wake_web():
+    while True:
+        log_lines = []
+        now_str = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
-# --- Log viewer ---
-st.write("### 📜 Visit Log")
+        try:
+            with open('weblist.txt', 'r', encoding='utf-8') as f:
+                urls = [line.strip() for line in f if line.strip()]
+                for url in urls:
+                    try:
+                        r = requests.get(url, headers=HEADERS, timeout=10)
+                        r.raise_for_status()
+                        log_line = f"{now_str} ✅ {url} → {r.status_code}"
+                    except requests.RequestException as e:
+                        log_line = f"{now_str} ❌ {url} → Error: {e}"
+                    print(log_line)
+                    log_lines.append(log_line)
+        except FileNotFoundError:
+            log_lines.append(f"{now_str} ❌ weblist.txt not found.")
+
+        if log_lines:
+            with open(LOG_FILE, "a", encoding='utf-8') as f:
+                for line in log_lines:
+                    f.write(line + "\n")
+
+        time.sleep(30)
+
+# Start background thread only once
+if not hasattr(st, "_wake_thread_started"):
+    threading.Thread(target=wake_web, daemon=True).start()
+    st._wake_thread_started = True
+
+# Auto-refresh every 1s
+st_autorefresh(interval=1000, key="refresh")
+
+# Virtual time display
+elapsed_real = (datetime.now() - REAL_SERVER_START).total_seconds()
+current_virtual = VIRTUAL_START + timedelta(seconds=elapsed_real)
+
+st.title("Wake Web Streamlit (requests version)")
+st.write("### Time running since:")
+st.code(current_virtual.strftime("%Y-%m-%d %H:%M:%S"))
+
+# Load last 100 log lines from file
 if os.path.exists(LOG_FILE):
-    with open(LOG_FILE, "r", encoding="utf-8") as f:
-        lines = f.readlines()[-100:]
+    with open(LOG_FILE, "r", encoding='utf-8') as f:
+        lines = f.readlines()
+        last_lines = lines[-100:]
+        st.write("### Request Log")
         st.markdown(
             f"""
-            <div style='
-                height: 300px; overflow-y: auto; 
-                background: #f9f9f9; padding: 10px; 
-                border: 1px solid #ccc; border-radius: 6px;
-                font-family: monospace; white-space: pre-wrap;
-                color: #000;'>
-            {"<br>".join(line.strip() for line in lines)}
+            <style>
+                .log-box::-webkit-scrollbar {{
+                    width: 10px;
+                }}
+                .log-box::-webkit-scrollbar-track {{
+                    background: #eee;
+                    border-radius: 5px;
+                }}
+                .log-box::-webkit-scrollbar-thumb {{
+                    background: #888;
+                    border-radius: 5px;
+                }}
+                .log-box::-webkit-scrollbar-thumb:hover {{
+                    background: #555;
+                }}
+                .log-box {{
+                    scrollbar-color: #888 #eee;
+                    scrollbar-width: thin;
+                }}
+            </style>
+            <div class="log-box" style="
+                background-color:#f9f9f9;
+                color:#000;
+                padding:10px;
+                border-radius:5px;
+                border:1px solid #ccc;
+                height:400px;
+                overflow:auto;
+                font-family: monospace;
+                white-space: pre-wrap;
+                width: 100%;">
+                {"<br>".join(line.strip() for line in last_lines)}
             </div>
-            """, unsafe_allow_html=True
+            """,
+            unsafe_allow_html=True
         )
+
 else:
+    st.write("### Request Log")
     st.info("No logs yet.")
