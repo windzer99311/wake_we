@@ -3,3 +3,4 @@ selenium
 webdriver-manager
 streamlit-autorefresh
 thread
+streamlit_autorefresh
