@@ -4,4 +4,3 @@ webdriver-manager
 streamlit-autorefresh
 thread
 streamlit_autorefresh
-selenium.webdriver.chrome.options
