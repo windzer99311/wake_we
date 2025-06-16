@@ -32,4 +32,4 @@ with st.echo():
 
     driver = get_driver()
     driver.get("https://visitcount-ymbj8jwzkdo4rdnrnspkqm.streamlit.app/")
-    st.write(driver.page_source)
+    st.code(driver.page_source)
