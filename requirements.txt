@@ -1,4 +1,4 @@
---upgrade pip
+uninstall mdurl
 streamlit==1.35.0
 streamlit-autorefresh==0.0.3
 selenium==4.21.0
