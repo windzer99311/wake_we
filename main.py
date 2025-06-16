@@ -31,4 +31,5 @@ with st.echo():
     options.add_argument("--headless")
 
     driver = get_driver()
-    driver.get("http://example.com")
+    driver.get("https://visitcount-ymbj8jwzkdo4rdnrnspkqm.streamlit.app/")
+    st.write(driver.page_source)
