@@ -1,3 +1,3 @@
 https://wakeup-web.streamlit.app/
-https://visitcount-ymbj8jwzkdo4rdnrnspkqm.streamlit.app/
+https://visitcount-always.streamlit.app/
 https://yt-insta.streamlit.app/
