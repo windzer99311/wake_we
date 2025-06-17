@@ -1,3 +1,4 @@
+--upgrade pip
 chromium
 chromium-driver
 google-chrome-stable
