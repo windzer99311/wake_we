@@ -59,7 +59,7 @@ def wake_web():
                 for line in log_lines:
                     f.write(line + "\n")
 
-        time.sleep(2710)
+        time.sleep(2700)
 
 # Start background thread only once
 if not hasattr(st, "_wake_thread_started"):
@@ -67,7 +67,7 @@ if not hasattr(st, "_wake_thread_started"):
     st._wake_thread_started = True
 
 # Auto-refresh every 1s
-st_autorefresh(interval=1000, key="refresh")
+st_autorefresh(interval=30000, key="refresh")
 
 # Virtual time display
 elapsed_real = (datetime.now() - REAL_SERVER_START).total_seconds()
