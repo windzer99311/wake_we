@@ -59,15 +59,15 @@ def wake_web():
                 for line in log_lines:
                     f.write(line + "\n")
 
-        time.sleep(2700)  # ✅ 45 minutes
+        time.sleep(30) 
 
-# ✅ Start background thread safely once per session
-if "wake_thread_started" not in st.session_state:
+# Start background thread only once
+if not hasattr(st, "_wake_thread_started"):
     threading.Thread(target=wake_web, daemon=True).start()
-    st.session_state.wake_thread_started = True
+    st._wake_thread_started = True
 
-# ✅ Auto-refresh every 1 second (safe now)
-st_autorefresh(interval=1000, key="refresh")  # 1 second
+# Auto-refresh every 1s
+st_autorefresh(interval=10000, key="refresh")
 
 # Virtual time display
 elapsed_real = (datetime.now() - REAL_SERVER_START).total_seconds()
@@ -121,6 +121,7 @@ if os.path.exists(LOG_FILE):
             """,
             unsafe_allow_html=True
         )
+
 else:
     st.write("### Request Log")
     st.info("No logs yet.")
