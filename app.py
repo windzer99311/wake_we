@@ -59,7 +59,7 @@ def wake_web():
                 for line in log_lines:
                     f.write(line + "\n")
 
-        time.sleep(30) 
+        time.sleep(300) 
 
 # Start background thread only once
 if not hasattr(st, "_wake_thread_started"):
